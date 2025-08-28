@@ -122,7 +122,7 @@ main() {
 
     # 不进行结算账号绑定，直接启用所需 API
 
-    # 启用 Gemini 相关 API（Generative Language、Vertex AI、Gemini for Google Cloud）
+    # 启用 Gemini 相关 API（Service Usage、Resource Manager、Vertex AI、Generative Language、Gemini for Google Cloud）
     enable_service_with_retry() {
         local svc="$1"
         local pid="$2"
@@ -140,6 +140,11 @@ main() {
             # 已启用也视为成功
             if echo "$out" | grep -qi "already enabled\|ALREADY_EXISTS"; then
                 echo "服务已处于启用状态: $svc" >&2
+                return 0
+            fi
+            # 服务在区域/租户不可用或不存在，视为可跳过（非致命）
+            if echo "$out" | grep -qi "not found\|Requested entity was not found\|unsupported\|Invalid resource name"; then
+                echo "服务不可用或不存在，跳过: $svc" >&2
                 return 0
             fi
             # 429 速率限制，指数回退 + 抖动
@@ -168,9 +173,20 @@ main() {
         done
     }
 
-    enable_service_with_retry generativelanguage.googleapis.com "$project_id" || exit 1
+    enable_service_with_retry serviceusage.googleapis.com "$project_id" || exit 1
+    enable_service_with_retry cloudresourcemanager.googleapis.com "$project_id" || exit 1
     enable_service_with_retry aiplatform.googleapis.com "$project_id" || exit 1
+    enable_service_with_retry generativelanguage.googleapis.com "$project_id" || exit 1
     enable_service_with_retry cloudaicompanion.googleapis.com "$project_id" || exit 1
+    # 兼容别名/区域命名：Gemini Cloud Assist（若不存在将被跳过）
+    enable_service_with_retry geminicloudassist.googleapis.com "$project_id" || exit 1
+
+    # 验证 Gemini for Google Cloud 是否已启用
+    if ! gcloud services list --enabled --project="$project_id" --format='value(config.name)' | grep -q '^cloudaicompanion.googleapis.com$'; then
+        echo "Gemini for Google Cloud 未能启用，可能需要组织/管理员在控制台产品页手动开通或授予权限。" >&2
+        echo "可在控制台搜索 'Gemini for Google Cloud' 产品并点击启用，或联系组织管理员。" >&2
+        exit 1
+    fi
 
     # 仅输出项目ID
     echo "$project_id"
