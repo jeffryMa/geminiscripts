@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -eo pipefail
 
 # 最小脚本：创建项目，启用 Gemini 相关 API，输出项目ID
 
@@ -18,8 +18,8 @@ gcloud config get-value account >/dev/null 2>&1 || { echo "请先执行: gcloud 
 # 生成项目ID
 timestamp=$(date +%s)
 random_hex=$(openssl rand -hex 4)
-project_id="${PROJECT_PREFIX:-gemini-pro}-${timestamp}-${random_hex}"
-project_id=$(echo "$project_id" | cut -c1-30)
+temp_project_id="${PROJECT_PREFIX:-gemini-pro}-${timestamp}-${random_hex}"
+project_id=$(echo "$temp_project_id" | cut -c1-30)
 
 # 调试信息
 echo "调试: timestamp=$timestamp" >&2
