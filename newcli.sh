@@ -40,8 +40,8 @@ done
 for api in aiplatform.googleapis.com generativelanguage.googleapis.com geminicloudassist.googleapis.com; do
     echo "正在启用: $api" >&2
     # 启用API，如果失败则重试
-    local attempt=1
-    local max_attempts=5
+    attempt=1
+    max_attempts=5
     while [ $attempt -le $max_attempts ]; do
         if gcloud services enable "$api" --project="$project_id" --quiet >&2 2>&1; then
             echo "✓ 已启用: $api" >&2
