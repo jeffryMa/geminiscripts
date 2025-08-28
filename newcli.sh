@@ -122,7 +122,7 @@ main() {
 
     # 不进行结算账号绑定，直接启用所需 API
 
-    # 启用 Gemini 相关 API（Generative Language 与 Vertex AI）
+    # 启用 Gemini 相关 API（Generative Language、Vertex AI、Gemini for Google Cloud）
     enable_service_with_retry() {
         local svc="$1"
         local pid="$2"
@@ -170,6 +170,7 @@ main() {
 
     enable_service_with_retry generativelanguage.googleapis.com "$project_id" || exit 1
     enable_service_with_retry aiplatform.googleapis.com "$project_id" || exit 1
+    enable_service_with_retry cloudaicompanion.googleapis.com "$project_id" || exit 1
 
     # 仅输出项目ID
     echo "$project_id"
