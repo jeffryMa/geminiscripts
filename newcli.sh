@@ -22,6 +22,78 @@ new_project_id() {
     echo "${prefix}-$(date +%s)-${rand}" | cut -c1-30
 }
 
+create_project_with_retry() {
+    local project_id="$1"
+    local max_attempts="${CREATE_MAX_RETRY:-8}"
+    local base_delay="${BASE_DELAY_SEC:-2}"
+    local attempt=1
+
+    local parent_args=()
+    if [ -n "${FOLDER_ID:-}" ]; then
+        parent_args+=("--folder=${FOLDER_ID}")
+    elif [ -n "${ORG_ID:-}" ]; then
+        parent_args+=("--organization=${ORG_ID}")
+    else
+        # 自动探测单一组织，若仅有一个可见组织则默认挂载到该组织
+        local orgs
+        orgs=$(gcloud organizations list --format='value(name)' 2>/dev/null || true)
+        if [ -n "$orgs" ]; then
+            local org_count
+            org_count=$(echo "$orgs" | wc -l | tr -d ' ')
+            if [ "$org_count" = "1" ]; then
+                local org_name
+                org_name=$(echo "$orgs" | head -n1)
+                local org_id
+                org_id=${org_name#organizations/}
+                if [ -n "$org_id" ]; then
+                    parent_args+=("--organization=${org_id}")
+                    echo "检测到单一组织(${org_id})，将项目创建在该组织下" >&2
+                fi
+            fi
+        fi
+    fi
+
+    while true; do
+        out=$(gcloud projects create "$project_id" --name="$project_id" "${parent_args[@]}" --quiet 2>&1)
+        rc=$?
+        if [ $rc -eq 0 ]; then
+            echo "项目创建成功: ${project_id}" >&2
+            return 0
+        fi
+
+        # 如果项目ID已被占用，生成新ID并继续（不增加 attempt 次数）
+        if echo "$out" | grep -qi "already exists\|already in use"; then
+            project_id=$(new_project_id)
+            echo "项目ID已被占用，改用: ${project_id}" >&2
+            continue
+        fi
+
+        # 429/配额/速率限制，指数回退
+        if echo "$out" | grep -q "RESOURCE_EXHAUSTED\|RATE_LIMIT_EXCEEDED\|Quota exceeded"; then
+            if [ $attempt -ge $max_attempts ]; then
+                echo "创建项目失败(超出最大重试)" >&2
+                echo "$out" >&2
+                return 1
+            fi
+            delay=$(( base_delay * (2 ** (attempt - 1)) ))
+            sleep_sec=$(awk -v d="$delay" 'BEGIN{srand(); printf("%.3f", d + rand())}')
+            echo "创建受限，重试第 ${attempt}/${max_attempts} 次，等待 ${sleep_sec}s" >&2
+            sleep "$sleep_sec"
+            attempt=$((attempt + 1))
+            continue
+        fi
+
+        # 其他错误，有限重试
+        if [ $attempt -ge $max_attempts ]; then
+            echo "创建项目失败(超出最大重试)" >&2
+            echo "$out" >&2
+            return 1
+        fi
+        sleep 2
+        attempt=$((attempt + 1))
+    done
+}
+
 main() {
     ensure_dep openssl
     ensure_gcp_login
@@ -29,8 +101,10 @@ main() {
     local project_id
     project_id=$(new_project_id)
 
-    # 创建项目（日志走 stderr，stdout 仅回显 project_id）
-    gcloud projects create "$project_id" --name="$project_id" --quiet >&2
+    # 创建项目（带重试与可选父级）
+    if ! create_project_with_retry "$project_id"; then
+        exit 1
+    fi
 
     # 等待项目变为 ACTIVE（处理资源传播延迟）
     local state
@@ -45,6 +119,8 @@ main() {
         echo "项目未就绪，当前状态: ${state:-UNKNOWN}" >&2
         exit 1
     fi
+
+    # 不进行结算账号绑定，直接启用所需 API
 
     # 启用 Gemini 相关 API（Generative Language 与 Vertex AI）
     enable_service_with_retry() {
