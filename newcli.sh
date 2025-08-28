@@ -16,8 +16,15 @@ command -v openssl >/dev/null 2>&1 || { echo "缺少 openssl" >&2; exit 1; }
 gcloud config get-value account >/dev/null 2>&1 || { echo "请先执行: gcloud auth login" >&2; exit 1; }
 
 # 生成项目ID
-project_id="${PROJECT_PREFIX:-gemini-pro}-$(date +%s)-$(openssl rand -hex 4)"
+timestamp=$(date +%s)
+random_hex=$(openssl rand -hex 4)
+project_id="${PROJECT_PREFIX:-gemini-pro}-${timestamp}-${random_hex}"
 project_id=$(echo "$project_id" | cut -c1-30)
+
+# 调试信息
+echo "调试: timestamp=$timestamp" >&2
+echo "调试: random_hex=$random_hex" >&2
+echo "调试: project_id=$project_id" >&2
 
 # 创建项目
 gcloud projects create "$project_id" --name="$project_id" --quiet >&2
