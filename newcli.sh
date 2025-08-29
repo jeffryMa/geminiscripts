@@ -39,9 +39,11 @@ done
 # 启用 API
 for api in aiplatform.googleapis.com generativelanguage.googleapis.com geminicloudassist.googleapis.com; do
     echo "正在启用: $api" >&2
+    
     # 启用API，如果失败则重试
     attempt=1
     max_attempts=5
+    
     while [ $attempt -le $max_attempts ]; do
         if gcloud services enable "$api" --project="$project_id" --quiet >&2 2>&1; then
             echo "✓ 已启用: $api" >&2
@@ -52,10 +54,11 @@ for api in aiplatform.googleapis.com generativelanguage.googleapis.com geminiclo
                 exit 1
             fi
             echo "! 启用失败，${attempt}/${max_attempts} 次重试..." >&2
-            sleep $((attempt * 2))  # 递增延迟
+            sleep $((attempt * 2))
             attempt=$((attempt + 1))
         fi
     done
+    
     # 每个API启用后等待，避免429
     sleep 3
 done
