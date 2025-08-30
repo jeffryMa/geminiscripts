@@ -313,4 +313,15 @@ echo -e "${BLUE}3. 现在您可以使用 geminicli 了！${NC}"
 echo -e "${YELLOW}📄 凭证文件完整内容：${NC}"
 cat "$credentials_file"
 
+# 输出关键信息（格式化的）
+echo -e "${YELLOW}📋 crs关键信息输出：${NC}"
+echo "$username"
+echo ""
+echo "$project_id"
+echo ""
+echo "$access_token"
+echo ""
+echo "$refresh_token"
+echo ""
+
 echo -e "${BLUE}${BOLD}✅ 所有操作完成！${NC}"
