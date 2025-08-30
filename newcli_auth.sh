@@ -188,7 +188,7 @@ token_response=$(curl -s -X POST "https://oauth2.googleapis.com/token" \
     -d "grant_type=authorization_code" \
     -d "redirect_uri=$REDIRECT_URI" \
     -d "code_verifier=$code_verifier" \
-    -d "scope=$scope_string")
+    -d "scope=$encoded_scope")
 
 # 检查响应
 if echo "$token_response" | jq -e '.access_token' >/dev/null 2>&1; then
