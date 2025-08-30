@@ -134,7 +134,9 @@ state=$(openssl rand -hex 32)
 
 # 构建授权URL
 scope_string=$(IFS=" " ; echo "${SCOPES[*]}")
-auth_url="https://accounts.google.com/o/oauth2/auth?client_id=$CLIENT_ID&redirect_uri=$REDIRECT_URI&scope=$scope_string&response_type=code&access_type=offline&prompt=consent&code_challenge=$code_challenge&code_challenge_method=S256&state=$state"
+# URL 编码 scope，将空格替换为 %20
+encoded_scope=$(echo "$scope_string" | sed 's/ /%20/g')
+auth_url="https://accounts.google.com/o/oauth2/auth?client_id=$CLIENT_ID&redirect_uri=$REDIRECT_URI&scope=$encoded_scope&response_type=code&access_type=offline&prompt=consent&code_challenge=$code_challenge&code_challenge_method=S256&state=$state"
 
 echo -e "${BLUE}${BOLD}OAuth 授权步骤${NC}"
 echo -e "${BLUE}1. 即将在浏览器中打开授权页面${NC}"
