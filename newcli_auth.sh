@@ -309,8 +309,8 @@ echo -e "${BLUE}1. 下载凭证文件到本地${NC}"
 echo -e "${BLUE}2. 将凭证文件路径设置到环境变量${NC}"
 echo -e "${BLUE}3. 现在您可以使用 geminicli 了！${NC}"
 
-# 显示凭证文件内容（隐藏敏感信息）
-echo -e "${YELLOW}📄 凭证文件内容预览：${NC}"
-jq 'del(.client_secret, .token, .refresh_token)' "$credentials_file"
+# 显示凭证文件内容（完整预览）
+echo -e "${YELLOW}📄 凭证文件完整内容：${NC}"
+cat "$credentials_file"
 
 echo -e "${BLUE}${BOLD}✅ 所有操作完成！${NC}"
