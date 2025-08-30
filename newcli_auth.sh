@@ -119,12 +119,20 @@ echo -e "${YELLOW}🌐 正在启动 OAuth 流程...${NC}"
 
 # 生成 OAuth 授权 URL
 scope_string="https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
-auth_url="https://accounts.google.com/o/oauth2/auth?client_id=$CLIENT_ID&redirect_uri=http://localhost:8080&scope=$scope_string&response_type=code&access_type=offline&prompt=consent"
+# URL 编码 scope，将空格替换为 %20
+encoded_scope=$(echo "$scope_string" | sed 's/ /%20/g')
+auth_url="https://accounts.google.com/o/oauth2/auth?client_id=$CLIENT_ID&redirect_uri=https://codeassist.google.com/authcode&scope=$encoded_scope&response_type=code&access_type=offline&prompt=consent"
 
 echo -e "${BLUE}${BOLD}OAuth 授权步骤${NC}"
 echo -e "${BLUE}1. 即将在浏览器中打开授权页面${NC}"
 echo -e "${BLUE}2. 请使用您的 Google 账户登录并授权${NC}"
-echo -e "${BLUE}3. 授权完成后，请复制授权码${NC}"
+echo -e "${BLUE}3. 授权完成后，您会跳转到一个页面显示授权码${NC}"
+echo -e "${BLUE}4. 请复制显示的授权码${NC}"
+
+echo -e "${BLUE}${BOLD}优势：${NC}"
+echo -e "${BLUE}✓ 使用 Google 官方重定向页面，无需本地服务器${NC}"
+echo -e "${BLUE}✓ 授权完成后会显示授权码，方便复制${NC}"
+echo -e "${BLUE}✓ 适用于任何环境，包括 Google Cloud Shell${NC}"
 
 # 在 Cloud Shell 中打开浏览器
 echo -e "${YELLOW}🚀 正在打开授权页面...${NC}"
@@ -157,7 +165,8 @@ token_response=$(curl -s -X POST "https://oauth2.googleapis.com/token" \
     -d "client_secret=$CLIENT_SECRET" \
     -d "code=$auth_code" \
     -d "grant_type=authorization_code" \
-    -d "redirect_uri=http://localhost:8080")
+    -d "redirect_uri=https://codeassist.google.com/authcode" \
+    -d "scope=$encoded_scope")
 
 # 检查响应
 if echo "$token_response" | jq -e '.access_token' >/dev/null 2>&1; then
