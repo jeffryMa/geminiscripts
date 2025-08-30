@@ -129,10 +129,10 @@ echo -e "${BLUE}2. 请使用您的 Google 账户登录并授权${NC}"
 echo -e "${BLUE}3. 授权完成后，您会跳转到一个页面显示授权码${NC}"
 echo -e "${BLUE}4. 请复制显示的授权码${NC}"
 
-echo -e "${BLUE}${BOLD}优势：${NC}"
-echo -e "${BLUE}✓ 使用 Google 官方重定向页面，无需本地服务器${NC}"
+echo -e "${BLUE}${BOLD}流程说明：${NC}"
+echo -e "${BLUE}✓ 生成授权链接，您访问完成授权${NC}"
 echo -e "${BLUE}✓ 授权完成后会显示授权码，方便复制${NC}"
-echo -e "${BLUE}✓ 适用于任何环境，包括 Google Cloud Shell${NC}"
+echo -e "${BLUE}✓ 无需本地服务器，适用于任何环境${NC}"
 
 # 在 Cloud Shell 中打开浏览器
 echo -e "${YELLOW}🚀 正在打开授权页面...${NC}"
