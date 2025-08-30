@@ -16,7 +16,7 @@ NC='\033[0m'
 CLIENT_ID="681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com"
 CLIENT_SECRET="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"
 REDIRECT_URI="https://codeassist.google.com/authcode"
-SCOPES=("https://www.googleapis.com/auth/cloud-platform")
+SCOPES=("https://www.googleapis.com/auth/cloud-platform" "https://www.googleapis.com/auth/userinfo.email" "https://www.googleapis.com/auth/userinfo.profile")
 
 echo -e "${BLUE}${BOLD}🚀 Google Cloud Shell OAuth 凭证获取工具${NC}"
 echo -e "${BLUE}一键完成授权、生成凭证文件并下载${NC}"
@@ -208,7 +208,10 @@ expires_in=$(echo "$token_response" | jq -r '.expires_in // empty')
 
 # 创建凭证文件
 echo -e "${YELLOW}💾 正在创建 OAuth 凭证文件...${NC}"
-credentials_file="oauth_creds_${project_id}.json"
+
+# 从账号中提取用户名（@前面的部分）
+username=$(echo "$account" | cut -d'@' -f1)
+credentials_file="${username}_oauth_creds_${project_id}.json"
 
 # 计算过期时间
 if [ -n "$expires_in" ] && [ "$expires_in" != "null" ]; then
@@ -217,20 +220,43 @@ else
     expiry=""
 fi
 
-# 创建凭证数据
-cat > "$credentials_file" << EOF
+# 创建凭证数据 - 使用更简单的方法
+if [ -n "$expiry" ]; then
+    # 有过期时间的情况
+    cat > "$credentials_file" << EOF
 {
     "client_id": "$CLIENT_ID",
     "client_secret": "$CLIENT_SECRET",
     "token": "$access_token",
     "refresh_token": "$refresh_token",
     "scopes": [
-        "https://www.googleapis.com/auth/cloud-platform"
+        "https://www.googleapis.com/auth/cloud-platform",
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/userinfo.profile"
     ],
     "token_uri": "https://oauth2.googleapis.com/token",
-    "project_id": "$project_id"${expiry:+$',\n    "expiry": "'$expiry'"'}
+    "expiry": "$expiry",
+    "project_id": "$project_id"
 }
 EOF
+else
+    # 没有过期时间的情况
+    cat > "$credentials_file" << EOF
+{
+    "client_id": "$CLIENT_ID",
+    "client_secret": "$CLIENT_SECRET",
+    "token": "$access_token",
+    "refresh_token": "$refresh_token",
+    "scopes": [
+        "https://www.googleapis.com/auth/cloud-platform",
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/userinfo.profile"
+    ],
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "project_id": "$project_id"
+}
+EOF
+fi
 
 echo -e "${GREEN}✓ OAuth 凭证文件已创建: $credentials_file${NC}"
 
@@ -248,8 +274,16 @@ if [ -n "$CLOUD_SHELL" ]; then
     read -p "" -r
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo -e "${YELLOW}正在下载凭证文件...${NC}"
-        cloudshell download "$credentials_file"
-        echo -e "${GREEN}✓ 凭证文件下载完成${NC}"
+        
+        # 尝试下载，如果失败则提供手动下载说明
+        if cloudshell download "$credentials_file" 2>/dev/null; then
+            echo -e "${GREEN}✓ 凭证文件下载完成${NC}"
+        else
+            echo -e "${YELLOW}⚠ cloudshell 下载失败，可能是网络问题或客户端未连接${NC}"
+            echo -e "${BLUE}请手动下载文件：${NC}"
+            echo -e "${GREEN}cloudshell download $credentials_file${NC}"
+            echo -e "${BLUE}或者稍后重试${NC}"
+        fi
     fi
 else
     echo -e "${YELLOW}⚠ 未检测到 Cloud Shell 环境${NC}"
