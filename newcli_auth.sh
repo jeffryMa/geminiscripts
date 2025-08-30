@@ -136,6 +136,12 @@ state=$(openssl rand -hex 32)
 scope_string=$(IFS=" " ; echo "${SCOPES[*]}")
 # URL 编码 scope，将空格替换为 %20
 encoded_scope=$(echo "$scope_string" | sed 's/ /%20/g')
+
+# 显示调试信息
+echo -e "${YELLOW}🔍 调试信息：${NC}"
+echo -e "${BLUE}原始 scope: $scope_string${NC}"
+echo -e "${BLUE}编码后 scope: $encoded_scope${NC}"
+
 auth_url="https://accounts.google.com/o/oauth2/auth?client_id=$CLIENT_ID&redirect_uri=$REDIRECT_URI&scope=$encoded_scope&response_type=code&access_type=offline&prompt=consent&code_challenge=$code_challenge&code_challenge_method=S256&state=$state"
 
 echo -e "${BLUE}${BOLD}OAuth 授权步骤${NC}"
