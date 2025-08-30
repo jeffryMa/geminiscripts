@@ -12,9 +12,11 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-# OAuth 配置
+# OAuth 配置 - 使用项目中的正确配置
 CLIENT_ID="681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com"
 CLIENT_SECRET="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"
+REDIRECT_URI="https://codeassist.google.com/authcode"
+SCOPES=("https://www.googleapis.com/auth/cloud-platform")
 
 echo -e "${BLUE}${BOLD}🚀 Google Cloud Shell OAuth 凭证获取工具${NC}"
 echo -e "${BLUE}一键完成授权、生成凭证文件并下载${NC}"
@@ -36,6 +38,7 @@ check_dependency() {
 check_dependency "gcloud"
 check_dependency "curl"
 check_dependency "jq"
+check_dependency "openssl"
 
 # 检查登录状态
 echo -e "${YELLOW}🔍 检查 Google Cloud 登录状态...${NC}"
@@ -117,11 +120,21 @@ done
 # 启动 OAuth 流程
 echo -e "${YELLOW}🌐 正在启动 OAuth 流程...${NC}"
 
-# 生成 OAuth 授权 URL
-scope_string="https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
-# URL 编码 scope，将空格替换为 %20
-encoded_scope=$(echo "$scope_string" | sed 's/ /%20/g')
-auth_url="https://accounts.google.com/o/oauth2/auth?client_id=$CLIENT_ID&redirect_uri=https://codeassist.google.com/authcode&scope=$encoded_scope&response_type=code&access_type=offline&prompt=consent"
+# 生成 PKCE 参数
+echo -e "${YELLOW}🔐 正在生成 PKCE 参数...${NC}"
+
+# 生成 code_verifier (64字节随机字符串)
+code_verifier=$(openssl rand -base64 64 | tr -d "=+/" | cut -c1-128)
+
+# 生成 code_challenge (SHA256哈希的base64url编码)
+code_challenge=$(echo -n "$code_verifier" | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+
+# 生成 state 参数
+state=$(openssl rand -hex 32)
+
+# 构建授权URL
+scope_string=$(IFS=" " ; echo "${SCOPES[*]}")
+auth_url="https://accounts.google.com/o/oauth2/auth?client_id=$CLIENT_ID&redirect_uri=$REDIRECT_URI&scope=$scope_string&response_type=code&access_type=offline&prompt=consent&code_challenge=$code_challenge&code_challenge_method=S256&state=$state"
 
 echo -e "${BLUE}${BOLD}OAuth 授权步骤${NC}"
 echo -e "${BLUE}1. 即将在浏览器中打开授权页面${NC}"
@@ -130,9 +143,15 @@ echo -e "${BLUE}3. 授权完成后，您会跳转到一个页面显示授权码$
 echo -e "${BLUE}4. 请复制显示的授权码${NC}"
 
 echo -e "${BLUE}${BOLD}流程说明：${NC}"
-echo -e "${BLUE}✓ 生成授权链接，您访问完成授权${NC}"
+echo -e "${BLUE}✓ 使用 PKCE 安全机制，符合 OAuth 2.1 标准${NC}"
+echo -e "${BLUE}✓ 使用正确的回调地址: $REDIRECT_URI${NC}"
 echo -e "${BLUE}✓ 授权完成后会显示授权码，方便复制${NC}"
 echo -e "${BLUE}✓ 无需本地服务器，适用于任何环境${NC}"
+
+echo -e "${YELLOW}🔐 PKCE 参数已生成：${NC}"
+echo -e "${BLUE}Code Verifier: ${code_verifier:0:20}...${NC}"
+echo -e "${BLUE}Code Challenge: ${code_challenge:0:20}...${NC}"
+echo -e "${BLUE}State: ${state:0:20}...${NC}"
 
 # 在 Cloud Shell 中打开浏览器
 echo -e "${YELLOW}🚀 正在打开授权页面...${NC}"
@@ -159,14 +178,15 @@ echo -e "${GREEN}✓ 已获取授权码: ${auth_code:0:20}...${NC}"
 # 交换令牌
 echo -e "${YELLOW}🔄 正在交换访问令牌...${NC}"
 
-# 使用 curl 交换令牌
+# 使用 curl 交换令牌，包含 PKCE 参数
 token_response=$(curl -s -X POST "https://oauth2.googleapis.com/token" \
     -d "client_id=$CLIENT_ID" \
     -d "client_secret=$CLIENT_SECRET" \
     -d "code=$auth_code" \
     -d "grant_type=authorization_code" \
-    -d "redirect_uri=https://codeassist.google.com/authcode" \
-    -d "scope=$encoded_scope")
+    -d "redirect_uri=$REDIRECT_URI" \
+    -d "code_verifier=$code_verifier" \
+    -d "scope=$scope_string")
 
 # 检查响应
 if echo "$token_response" | jq -e '.access_token' >/dev/null 2>&1; then
@@ -174,6 +194,10 @@ if echo "$token_response" | jq -e '.access_token' >/dev/null 2>&1; then
 else
     echo -e "${RED}✗ 令牌交换失败${NC}"
     echo "响应: $token_response"
+    echo -e "${YELLOW}可能的原因：${NC}"
+    echo -e "${YELLOW}1. 授权码已过期或已使用${NC}"
+    echo -e "${YELLOW}2. redirect_uri 不匹配${NC}"
+    echo -e "${YELLOW}3. code_verifier 不正确${NC}"
     exit 1
 fi
 
@@ -201,9 +225,7 @@ cat > "$credentials_file" << EOF
     "token": "$access_token",
     "refresh_token": "$refresh_token",
     "scopes": [
-        "https://www.googleapis.com/auth/cloud-platform",
-        "https://www.googleapis.com/auth/userinfo.email",
-        "https://www.googleapis.com/auth/userinfo.profile"
+        "https://www.googleapis.com/auth/cloud-platform"
     ],
     "token_uri": "https://oauth2.googleapis.com/token",
     "project_id": "$project_id"${expiry:+$',\n    "expiry": "'$expiry'"'}
@@ -211,8 +233,6 @@ cat > "$credentials_file" << EOF
 EOF
 
 echo -e "${GREEN}✓ OAuth 凭证文件已创建: $credentials_file${NC}"
-
-
 
 # 下载文件
 echo -e "${YELLOW}📥 正在准备文件下载...${NC}"
@@ -249,8 +269,6 @@ echo -e "${BLUE}3. 现在您可以使用 geminicli 了！${NC}"
 
 # 显示凭证文件内容（隐藏敏感信息）
 echo -e "${YELLOW}📄 凭证文件内容预览：${NC}"
-#jq 'del(.client_secret, .token, .refresh_token)' "$credentials_file"
-
-
+jq 'del(.client_secret, .token, .refresh_token)' "$credentials_file"
 
 echo -e "${BLUE}${BOLD}✅ 所有操作完成！${NC}"
