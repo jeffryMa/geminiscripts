@@ -94,6 +94,10 @@ gcloud iam service-accounts create "$SA_NAME" \
     --display-name="Vertex AI Service Account" \
     --project="$PROJECT_ID"
 
+# ⏳ 等待 5 秒，解决 IAM 后台同步延迟问题
+echo "正在等待服务账号在 IAM 中生效 (约 5 秒)..."
+sleep 5
+
 # 5. 授予相关权限
 echo "正在为服务账号授予 Vertex AI 用户权限 (Vertex AI User)..."
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
@@ -117,6 +121,6 @@ echo "=========================================="
 echo "提示：您可以点击 Cloud Shell 右上角的下载按钮，下载上述生成的 $KEY_FILE 文件。"
 EOF
 
-# 赋予权限并运行
+# 赋予权限并立即运行
 chmod +x setup_vertex.sh
 ./setup_vertex.sh
