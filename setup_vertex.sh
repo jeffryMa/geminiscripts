@@ -27,18 +27,21 @@ if [ "$choice" == "1" ]; then
 elif [ "$choice" == "2" ]; then
     echo "正在获取您当前账号下的可用项目列表..."
     
-    # 获取项目列表并存入数组
-    PROJECTS=($(gcloud projects list --format="value(projectId)"))
+    # 获取项目 ID 和名称存入数组
+    mapfile -t PROJECTS < <(gcloud projects list --format="value(projectId)")
+    mapfile -t NAMES < <(gcloud projects list --format="value(name)")
     
     if [ ${#PROJECTS[@]} -eq 0 ]; then
         echo "❌ 未找到任何可用的 Google Cloud 项目，请先创建项目。"
         exit 1
     fi
 
+    echo ""
     echo "请选择要使用的项目序号："
     for i in "${!PROJECTS[@]}"; do
-        echo "$((i+1))) ${PROJECTS[$i]}"
+        echo "  [$((i+1))] 项目 ID: ${PROJECTS[$i]}  (名称: ${NAMES[$i]})"
     done
+    echo ""
 
     read -p "请输入项目序号 (例如 1): " proj_index
 
@@ -48,7 +51,7 @@ elif [ "$choice" == "2" ]; then
         exit 1
     fi
 
-    # 通过数组索引获取实际的项目 ID (数组下标从 0 开始，所以减 1)
+    # 通过数组索引获取实际的项目 ID
     PROJECT_ID="${PROJECTS[$((proj_index-1))]}"
     echo "✅ 已选择项目: $PROJECT_ID"
 else
